@@ -22,12 +22,13 @@ If a test case fails, both the expected output and the actual output will be dis
 
 ### Fetching new tests
 
-If, for some reason, you would like to redownload the tests, you can run the `fetch_all.py` script. In order for the
+If, for some reason, you would like to redownload the tests, you can run the `fetch_tests.py` script. In order for the
 POST requests to work, you must set the `CSRF_TOKEN` and `PHPSESSID` environment variables. In order to find those,
 you have to open your browser, open the developer tools, and go to the network tab. Once you're there, download any
 test, for example from [here](https://cses.fi/problemset/tests/1068/). A POST request should appear in the network
 tab. From there you can retrieve the `CSRF_TOKEN` by clicking on the request and clicking on the request tab.
-Similarly, `PHPSESSID` can be found in the cookies tab.
+Similarly, `PHPSESSID` can be found in the cookies tab. If you would like to only download the tests for one problem,
+you can pass the problem's ID to the script, like so: `python3 fetch_tests.py <taskNumber>`
 
 ## Usage with build tools
 

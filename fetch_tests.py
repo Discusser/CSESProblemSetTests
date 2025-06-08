@@ -1,4 +1,5 @@
 import os
+import sys
 import requests
 
 problems = [
@@ -415,9 +416,15 @@ if phpsessid is None:
     print("PHPSESSID environment variable is not set. Cannot download tests.")
     exit(-1)
 
+selectedProblem = None
+if len(sys.argv) == 2:
+    selectedProblem = int(sys.argv[1])
+
 data = {"csrf_token": csrfToken, "download": True}
 cookies = {"PHPSESSID": phpsessid}
-for problem in problems:
+
+
+def downloadTests(problem: int):
     url = "https://cses.fi/problemset/tests/" + str(problem) + "/"
     response = requests.post(url, data=data, cookies=cookies)
     filename = "tests/" + str(problem) + "/" + str(problem) + ".zip"
@@ -425,3 +432,10 @@ for problem in problems:
     with open(filename, "w+b") as f:
         f.write(response.content)
     print("Downloaded " + str(problem) + " (" + str(response.status_code) + ")")
+
+
+if selectedProblem is None:
+    for problem in problems:
+        downloadTests(problem)
+else:
+    downloadTests(selectedProblem)

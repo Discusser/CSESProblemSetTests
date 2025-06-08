@@ -32,7 +32,8 @@ Similarly, `PHPSESSID` can be found in the cookies tab.
 ## Usage with build tools
 
 With a build tool of your choice, you can create shell scripts that will automatically run tests for a given problem,
-which avoids having to enter the task number and executable path each time.
+which avoids having to enter the task number and executable path each time. **This only works on Linux**. If you
+want to make it work on other operating systems, you might have to adjust the script provided.
 I've provided an example of this with CMake:
 
 ```cmake
@@ -44,7 +45,7 @@ function(problem name taskNumber)
   add_executable(${name} ${CMAKE_SOURCE_DIR}/problems/${name}.cpp)
 
   set(TEST_FILE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${name}-test.sh")
-  # Create shell script that calls `tests.py`
+  # Create shell script that calls `tests.py`. Modify this function call accordingly with your operating system.
   file(
     WRITE ${TEST_FILE}
     "#!/bin/sh\n\npython3 ${CMAKE_SOURCE_DIR}/tests/tests.py ${taskNumber} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${name}"
@@ -75,6 +76,7 @@ problem(number_spiral 1071)
 
 ## Example output
 
-The `tests.py` script outputs colored text, which makes the output a lot more readable.
-![Output example with errors](output_example1.png "Output example with errors")
+The `tests.py` script outputs colored text, which makes the output a lot more readable.\
+
+![Output example with errors](output_example1.png "Output example with errors")\
 ![Output example with only passes](output_example2.png "Output example with all passes")

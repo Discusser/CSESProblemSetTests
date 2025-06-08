@@ -100,9 +100,7 @@ def main():
                         outDiff += c
                     outDiff += "\033[00m"
                     outDiff = "".join(outDiff)
-                    print(
-                        f"  Test case #{str(i).ljust(3, ' ')} \033[91mfailed\033[00m at line {j}"
-                    )
+                    print(f"  Test case #{str(i).ljust(3, ' ')} \033[91mfailed\033[00m")
                     print(f"    \033[96mExpected\033[00m: {expectedLine}")
                     print(f"    \033[93mFound\033[00m: {outDiff}")
                     break

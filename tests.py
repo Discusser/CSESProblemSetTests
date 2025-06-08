@@ -1,3 +1,4 @@
+from io import TextIOWrapper
 import subprocess
 import psutil
 import time
@@ -8,6 +9,11 @@ import sys
 
 TIME_LIMIT = 1.0  # seconds
 MEMORY_LIMIT = 512.0  # megabytes
+ANSI_RESET = "\033[00m"
+ANSI_RED = "\033[91m"
+ANSI_GREEN = "\033[92m"
+ANSI_YELLOW = "\033[93m"
+ANSI_CYAN = "\033[96m"
 
 
 def help():
@@ -20,7 +26,7 @@ def help():
     )
 
 
-def getInOutFiles(dir) -> tuple[list[str], list[str]]:
+def getInOutFiles(dir: str) -> tuple[list[str], list[str]]:
     inFiles = []
     outFiles = []
     for file in os.listdir(dir):
@@ -38,6 +44,51 @@ def getInOutFiles(dir) -> tuple[list[str], list[str]]:
     return (inFiles, outFiles)
 
 
+def extractZip(file: str):
+    print(file)
+    if os.path.exists(file):
+        with zipfile.ZipFile(file, "r") as f:
+            f.extractall(os.path.dirname(file))
+
+
+def getInOutFilesOrExtract(dir: str, filename: str) -> tuple[list[str], list[str]]:
+    inFiles, outFiles = getInOutFiles(dir)
+    if len(inFiles) == 0 or len(outFiles) == 0:
+        extractZip(os.path.join(dir, filename))
+        inFiles, outFiles = getInOutFiles(dir)
+        print(f"Extracted {filename}")
+    return inFiles, outFiles
+
+
+def runProcess(path: str, stdin: TextIOWrapper):
+    startTime = time.time()
+    proc = subprocess.Popen(
+        path,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    psProc = psutil.Process(proc.pid)
+    peakMemory = startMemory = psProc.memory_info().rss
+    stdout = []
+    while proc.poll() is None:
+        proc.stdin.writelines(stdin)
+        proc.stdin.flush()
+        peakMemory = max(peakMemory, psProc.memory_info().rss)
+        stdout = proc.stdout.readlines()
+        proc.terminate()
+    endTime = time.time()
+
+    for i in range(len(stdout)):
+        stdout[i] = stdout[i].strip()
+
+    elapsedTime = endTime - startTime
+    memoryUsage = (peakMemory - startMemory) / 1_000_000
+
+    return stdout, elapsedTime, memoryUsage
+
+
 def main():
     if len(sys.argv) != 3:
         help()
@@ -48,62 +99,36 @@ def main():
 
     selfDir = os.path.dirname(__file__)
     testDir = os.path.join(selfDir, "tests", taskNumber)
-    inFiles, outFiles = getInOutFiles(testDir)
+    inFiles, outFiles = getInOutFilesOrExtract(testDir, taskNumber + ".zip")
+    print(
+        f"Running {len(inFiles)} test cases for problem {taskNumber}, '{os.path.basename(executablePath)}'"
+    )
 
-    if len(inFiles) == 0 or len(outFiles) == 0:
-        zipPath = os.path.join(testDir, taskNumber + ".zip")
-        if os.path.exists(zipPath):
-            with zipfile.ZipFile(zipPath, "r") as zipFile:
-                zipFile.extractall(testDir)
-                inFiles, outFiles = getInOutFiles(testDir)
-                print(
-                    f"Extracted {os.path.basename(zipPath)}. There are now {len(inFiles)} test cases"
-                )
-    print(f"Running {len(inFiles)} test cases")
+    for i in range(1, min(len(inFiles), len(outFiles)) + 1):
+        inFilePath = os.path.join(testDir, str(i) + ".in")
+        outFilePath = os.path.join(testDir, str(i) + ".out")
+        inFile = open(inFilePath)
+        outFile = open(outFilePath)
 
-    for i in range(1, len(inFiles) + 1):
-        inPath = os.path.join(testDir, str(i) + ".in")
-        outPath = os.path.join(testDir, str(i) + ".out")
-        inFile = open(inPath)
-        outFile = open(outPath)
+        out, elapsedTime, memoryUsage = runProcess(executablePath, inFile)
+        paddedI = str(i).ljust(3, " ")
+        genericFailMessage = f"  Test case #{paddedI} {ANSI_RED}failed{ANSI_RESET}"
 
-        start = time.time()
-        proc = subprocess.Popen(
-            executablePath,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        startMemory = psutil.Process(proc.pid).memory_info().rss
-        peakMemory = 0
-        while proc.poll() is None:
-            proc.stdin.writelines(inFile)
-            proc.stdin.flush()
-            peakMemory = max(peakMemory, psutil.Process(proc.pid).memory_info().rss)
-            out = proc.stdout.readlines()
-            for k in range(len(out)):
-                out[k] = out[k].strip()
-            proc.terminate()
-        end = time.time()
-        elapsed = end - start
-        memoryUsage = (peakMemory - startMemory) / 1_000_000
-
-        if elapsed > TIME_LIMIT:
+        if elapsedTime > TIME_LIMIT:
             print(
-                f"Test case #{str(i).ljust(3, ' ')} \033[91mfailed\033[00m. Program ran in {elapsed} seconds, while time limit was set to {TIME_LIMIT} seconds"
+                f"{genericFailMessage}. Program ran in {elapsedTime:.3f} seconds, while time limit was set to {TIME_LIMIT} seconds"
             )
             continue
         if memoryUsage > MEMORY_LIMIT:
             print(
-                f"Test case #{str(i).ljust(3, ' ')} \033[91mfailed\033[00m. Program used approximately {memoryUsage} MB of memory, while memory limit was set to {MEMORY_LIMIT} MB"
+                f"{genericFailMessage}. Program used {memoryUsage:.3f} MB of memory, while memory limit was set to {MEMORY_LIMIT} MB"
             )
             continue
 
-        outLines = sum(1 for _ in open(outPath))
+        outLines = sum(1 for _ in open(outFilePath))
         if len(out) != outLines:
             print(
-                f"Test case #{str(i).ljust(3, ' ')} \033[91mfailed\033[00m. Expected {outLines} lines of output, but found {out} instead"
+                f"{genericFailMessage}. Expected {outLines} lines of output, but got {len(out)} instead"
             )
         else:
             failed = False
@@ -111,28 +136,28 @@ def main():
                 expectedLine = outFile.readline().strip()
                 if out[j] != expectedLine:
                     failed = True
-                    outDiff = ["\033[92m"]
+                    outDiff = [ANSI_GREEN]
                     prevWasWrong = False
                     for k, c in enumerate(out[j]):
                         if k >= len(expectedLine):
                             break
                         if c != expectedLine[k] and not prevWasWrong:
-                            outDiff += "\033[91m"
+                            outDiff += ANSI_RED
                             prevWasWrong = True
                         elif c == expectedLine[k] and prevWasWrong:
-                            outDiff += "\033[92m"
+                            outDiff += ANSI_GREEN
                             prevWasWrong = False
                         outDiff += c
-                    outDiff += "\033[00m"
+                    outDiff += ANSI_RESET
                     outDiff = "".join(outDiff)
-                    print(f"  Test case #{str(i).ljust(3, ' ')} \033[91mfailed\033[00m")
-                    print(f"    \033[96mExpected\033[00m: {expectedLine}")
-                    print(f"    \033[93mFound\033[00m: {outDiff}")
+                    print(f"{genericFailMessage}")
+                    print(f"    {ANSI_CYAN}Expected{ANSI_RESET}: {expectedLine}")
+                    print(f"    {ANSI_YELLOW}Found{ANSI_RESET}: {outDiff}")
                     break
 
             if not failed:
                 print(
-                    f"  Test case #{str(i).ljust(3, ' ')} \033[92mpassed\033[00m in {elapsed:.3f} seconds with {memoryUsage:.3f} MB of memory"
+                    f"  Test case #{paddedI} {ANSI_GREEN}passed{ANSI_RESET} in {elapsedTime:.3f} seconds with {memoryUsage:.3f} MB of memory"
                 )
 
         inFile.close()

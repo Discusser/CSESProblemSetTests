@@ -45,7 +45,6 @@ def getInOutFiles(dir: str) -> tuple[list[str], list[str]]:
 
 
 def extractZip(file: str):
-    print(file)
     if os.path.exists(file):
         with zipfile.ZipFile(file, "r") as f:
             f.extractall(os.path.dirname(file))

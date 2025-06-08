@@ -1,7 +1,13 @@
 import subprocess
+import psutil
+import time
 import zipfile
 import os
 import sys
+
+
+TIME_LIMIT = 1.0  # seconds
+MEMORY_LIMIT = 512.0  # megabytes
 
 
 def help():
@@ -60,6 +66,8 @@ def main():
         outPath = os.path.join(testDir, str(i) + ".out")
         inFile = open(inPath)
         outFile = open(outPath)
+
+        start = time.time()
         proc = subprocess.Popen(
             executablePath,
             stdin=subprocess.PIPE,
@@ -67,18 +75,35 @@ def main():
             stderr=subprocess.STDOUT,
             text=True,
         )
+        startMemory = psutil.Process(proc.pid).memory_info().rss
+        peakMemory = 0
         while proc.poll() is None:
             proc.stdin.writelines(inFile)
             proc.stdin.flush()
+            peakMemory = max(peakMemory, psutil.Process(proc.pid).memory_info().rss)
             out = proc.stdout.readlines()
             for k in range(len(out)):
                 out[k] = out[k].strip()
             proc.terminate()
+        end = time.time()
+        elapsed = end - start
+        memoryUsage = (peakMemory - startMemory) / 1_000_000
+
+        if elapsed > TIME_LIMIT:
+            print(
+                f"Test case #{str(i).ljust(3, ' ')} \033[91mfailed\033[00m. Program ran in {elapsed} seconds, while time limit was set to {TIME_LIMIT} seconds"
+            )
+            continue
+        if memoryUsage > MEMORY_LIMIT:
+            print(
+                f"Test case #{str(i).ljust(3, ' ')} \033[91mfailed\033[00m. Program used approximately {memoryUsage} MB of memory, while memory limit was set to {MEMORY_LIMIT} MB"
+            )
+            continue
 
         outLines = sum(1 for _ in open(outPath))
         if len(out) != outLines:
             print(
-                f"Test case #{str(i).ljust(3, ' ')} failed. Expected {outLines} lines of output, but found {out} instead"
+                f"Test case #{str(i).ljust(3, ' ')} \033[91mfailed\033[00m. Expected {outLines} lines of output, but found {out} instead"
             )
         else:
             failed = False
@@ -106,7 +131,9 @@ def main():
                     break
 
             if not failed:
-                print(f"  Test case #{str(i).ljust(3, ' ')} \033[92mpassed\033[00m")
+                print(
+                    f"  Test case #{str(i).ljust(3, ' ')} \033[92mpassed\033[00m in {elapsed:.3f} seconds with {memoryUsage:.3f} MB of memory"
+                )
 
         inFile.close()
         outFile.close()

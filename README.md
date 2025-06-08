@@ -76,7 +76,7 @@ problem(number_spiral 1071)
 
 ## Example output
 
-The `tests.py` script outputs colored text, which makes the output a lot more readable.\
+The `tests.py` script outputs colored text, which makes the output a lot more readable.
 
-![Output example with errors](output_example1.png "Output example with errors")\
+![Output example with errors](output_example1.png "Output example with errors")
 ![Output example with only passes](output_example2.png "Output example with all passes")

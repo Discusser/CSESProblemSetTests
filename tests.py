@@ -150,7 +150,7 @@ def main():
                         outDiff += c
                     outDiff += ANSI_RESET
                     outDiff = "".join(outDiff)
-                    print(f"{genericFailMessage}")
+                    print(f"{genericFailMessage} (line {j + 1}/{outLines})")
                     print(f"    {ANSI_CYAN}Expected{ANSI_RESET}: {expectedLine}")
                     print(f"    {ANSI_YELLOW}Found{ANSI_RESET}: {outDiff}")
                     break

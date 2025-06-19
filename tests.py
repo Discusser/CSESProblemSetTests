@@ -63,19 +63,17 @@ def runProcess(path: str, stdin: TextIOWrapper):
     startTime = time.time()
     proc = subprocess.Popen(
         path,
-        stdin=subprocess.PIPE,
+        stdin=stdin,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
         text=True,
     )
     psProc = psutil.Process(proc.pid)
     peakMemory = startMemory = psProc.memory_info().rss
     stdout = []
     while proc.poll() is None:
-        proc.stdin.writelines(stdin)
-        proc.stdin.flush()
+        # NOTE: peakMemory might be inaccurate
         peakMemory = max(peakMemory, psProc.memory_info().rss)
-        stdout = proc.stdout.readlines()
+        stdout = proc.communicate()[0].strip().split("\n")
         proc.terminate()
     endTime = time.time()
 
@@ -139,13 +137,16 @@ def main():
                     prevWasWrong = False
                     for k, c in enumerate(out[j]):
                         if k >= len(expectedLine):
-                            break
-                        if c != expectedLine[k] and not prevWasWrong:
-                            outDiff += ANSI_RED
-                            prevWasWrong = True
-                        elif c == expectedLine[k] and prevWasWrong:
-                            outDiff += ANSI_GREEN
-                            prevWasWrong = False
+                            if not prevWasWrong:
+                                outDiff += ANSI_RED
+                                prevWasWrong = True
+                        else:
+                            if c != expectedLine[k] and not prevWasWrong:
+                                outDiff += ANSI_RED
+                                prevWasWrong = True
+                            elif c == expectedLine[k] and prevWasWrong:
+                                outDiff += ANSI_GREEN
+                                prevWasWrong = False
                         outDiff += c
                     outDiff += ANSI_RESET
                     outDiff = "".join(outDiff)
